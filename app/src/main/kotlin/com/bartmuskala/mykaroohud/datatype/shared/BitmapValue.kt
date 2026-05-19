@@ -84,8 +84,6 @@ fun renderValueBitmap(
     // ---- Font size for the text part ------------------------------------------
     // Re-measure with a paint that matches the actual typeface so that a 2-char
     // wind value ("14") renders at the same visual size as "250" (3-char power).
-    val effectiveCellPx = (cellWidthPx - arrowBlock).coerceAtLeast(cellWidthPx * 0.4f)
-
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.create("relative", Typeface.NORMAL)
         textSize = fontSizePx
@@ -98,25 +96,9 @@ fun renderValueBitmap(
     val hasPercent = text.endsWith("%")
     val mainText   = if (hasPercent) text.dropLast(1) else text
 
-    val mainWidthFull = paint.measureText(mainText)
-    val suffixWidthFull = if (hasPercent) {
-        paint.textSize = fontSizePx * 0.6f
-        val w = paint.measureText("%")
-        paint.textSize = fontSizePx
-        w
-    } else 0f
-
-    // If the text is shorter than the effective cell the font would scale UP from
-    // the base — we cap at fontSizePx to keep all slots the same size.
-    val textNeedsWidth = mainWidthFull + suffixWidthFull
-    val scaledFontPx = if (windArrowAngle != null && textNeedsWidth < effectiveCellPx) {
-        // Cap: use whatever is smaller — the passed fontSizePx or the size that
-        // fills effectiveCellPx. This prevents the 2-digit wind value from rendering
-        // larger than the 3-digit power value.
-        fontSizePx.coerceAtMost(fontSizePx * effectiveCellPx / cellWidthPx)
-    } else {
-        fontSizePx
-    }
+    // Always render the number at the full base font size.
+    // The arrow sits to the left and does not reduce the font size.
+    val scaledFontPx = fontSizePx
 
     paint.textSize = scaledFontPx
     val mainWidth   = paint.measureText(mainText)
