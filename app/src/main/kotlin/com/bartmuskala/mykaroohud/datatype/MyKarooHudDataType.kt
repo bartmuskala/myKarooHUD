@@ -148,11 +148,18 @@ class MyKarooHudDataType(
 
             val leftSlot = if (heading != null && absoluteWindDir != null && windSpeed != null) {
                 val diff = (absoluteWindDir - heading + 360) % 360
-                val windColorHex = when {
-                    windSpeed > 0 -> Color(0xFF1A9850).toArgb() // Tailwind = Green
-                    windSpeed < 0 -> Color(0xFFD73027).toArgb() // Headwind = Red
-                    else -> Color(0xFF7D7D7D).toArgb()
-                }
+                val clampedSpeed = windSpeed.coerceIn(-30.0, 30.0)
+                val factor = (clampedSpeed + 30.0) / 60.0 // -30 -> 0 (Red), +30 -> 1 (Green)
+
+                val RDYLGN_RED = Color(0xFFD73027)
+                val RDYLGN_YELLOW = Color(0xFFFFE900)
+                val RDYLGN_GREEN = Color(0xFF1A9850)
+
+                val windColorHex = if (factor < 0.5) {
+                    lerp(RDYLGN_RED, RDYLGN_YELLOW, (factor * 2).toFloat())
+                } else {
+                    lerp(RDYLGN_YELLOW, RDYLGN_GREEN, ((factor - 0.5) * 2).toFloat())
+                }.toArgb()
 
                 FieldState(
                     primary = "${getWindArrowString(diff)} ${windSpeed.roundToInt()}",

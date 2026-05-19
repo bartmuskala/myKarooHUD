@@ -19,19 +19,22 @@ android {
         applicationId = "com.bartmuskala.mykaroohud"
         minSdk = 23
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.0.4"
+        versionCode = 8
+        versionName = "1.0.5"
     }
 
     signingConfigs {
         create("release") {
-            val storePath = localProperties["signing.store.file"] as? String
-            if (storePath != null) {
-                storeFile = file(storePath)
-                storePassword = localProperties["signing.store.password"] as? String
-                keyAlias = localProperties["signing.key.alias"] as? String
-                keyPassword = localProperties["signing.key.password"] as? String
-            }
+            storeFile = file("release.keystore")
+            storePassword = "mykaroohud"
+            keyAlias = "mykaroohud"
+            keyPassword = "mykaroohud"
+        }
+        getByName("debug") {
+            storeFile = file("release.keystore")
+            storePassword = "mykaroohud"
+            keyAlias = "mykaroohud"
+            keyPassword = "mykaroohud"
         }
     }
 
