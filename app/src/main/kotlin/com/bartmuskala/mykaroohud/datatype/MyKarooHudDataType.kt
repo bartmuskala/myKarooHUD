@@ -173,7 +173,7 @@ class MyKarooHudDataType(
             }
 
             val currentTimeMillis = System.currentTimeMillis()
-            wPrimeCalculator.resetRideState(currentTimeMillis, config.criticalPower, config.wPrimeJoules)
+            wPrimeCalculator.resetRideState(currentTimeMillis, config.cp, config.wPrimeJoules)
             val wPrimePercent = wPrimeCalculator.calculateWPrimeBalancePercent(pInst, currentTimeMillis)
             val wPrimeColorHex = wPrimeColor(wPrimePercent)
 
