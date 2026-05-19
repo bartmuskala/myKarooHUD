@@ -49,12 +49,23 @@ fun renderValueBitmap(
             ViewConfig.Alignment.RIGHT -> Paint.Align.RIGHT
         }
     }
-    val measuredWidth = paint.measureText(text)
+    val hasPercent = text.endsWith("%")
+    val mainText = if (hasPercent) text.dropLast(1) else text
+    
+    val mainWidth = paint.measureText(mainText)
+    val suffixWidth = if (hasPercent) {
+        paint.textSize = fontSizePx * 0.6f
+        val w = paint.measureText("%")
+        paint.textSize = fontSizePx
+        w
+    } else 0f
+    
+    val measuredWidth = mainWidth + suffixWidth
     val cellW = cellWidthPx.toInt().coerceAtLeast(1)
     val width = measuredWidth.toInt().coerceIn(1, cellW)
 
     val bounds = Rect()
-    paint.getTextBounds(text, 0, text.length, bounds)
+    paint.getTextBounds(mainText, 0, mainText.length, bounds)
     val baselineY = (bitmapHeightPx - bounds.bottom).toFloat()
 
     val bitmap = Bitmap.createBitmap(width, bitmapHeightPx, Bitmap.Config.ARGB_8888)
@@ -66,6 +77,34 @@ fun renderValueBitmap(
         ViewConfig.Alignment.CENTER -> width / 2f
         ViewConfig.Alignment.RIGHT -> width.toFloat()
     }
-    canvas.drawText(text, xPos, baselineY, paint)
+    
+    if (alignment == ViewConfig.Alignment.RIGHT) {
+        if (hasPercent) {
+            paint.textAlign = Paint.Align.RIGHT
+            paint.textSize = fontSizePx * 0.6f
+            canvas.drawText("%", width.toFloat(), baselineY, paint)
+            paint.textSize = fontSizePx
+            canvas.drawText(mainText, width - suffixWidth, baselineY, paint)
+        } else {
+            canvas.drawText(mainText, width.toFloat(), baselineY, paint)
+        }
+    } else if (alignment == ViewConfig.Alignment.CENTER) {
+        paint.textAlign = Paint.Align.LEFT
+        val startX = (width - measuredWidth) / 2f
+        canvas.drawText(mainText, startX, baselineY, paint)
+        if (hasPercent) {
+            paint.textSize = fontSizePx * 0.6f
+            canvas.drawText("%", startX + mainWidth, baselineY, paint)
+            paint.textSize = fontSizePx
+        }
+    } else {
+        paint.textAlign = Paint.Align.LEFT
+        canvas.drawText(mainText, 0f, baselineY, paint)
+        if (hasPercent) {
+            paint.textSize = fontSizePx * 0.6f
+            canvas.drawText("%", mainWidth, baselineY, paint)
+            paint.textSize = fontSizePx
+        }
+    }
     return bitmap
 }

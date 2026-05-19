@@ -62,7 +62,7 @@ internal fun sparklineBitmapFlow(
         karooSystem.streamRideState()
 
     return rideStateFlow.flatMapLatest { rideState ->
-        val debugSweep = (BuildConfig.DEBUG && rideState !is RideState.Recording) || isPreview
+        val debugSweep = isPreview
         val distFlow: Flow<StreamState> = if (debugSweep)
             flow { while (true) { emit(StreamState.NotAvailable); delay(1000L) } }
         else

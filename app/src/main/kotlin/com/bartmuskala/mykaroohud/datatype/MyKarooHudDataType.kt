@@ -82,20 +82,13 @@ class MyKarooHudDataType(
         }
         return color.toArgb()
     }
-
-    private fun getWindArrow(diff: Double): String {
-        val normalized = (diff + 360) % 360
-        return when (normalized) {
-            in 0.0..22.5, in 337.5..360.0 -> "↓"
-            in 22.5..67.5 -> "↙"
-            in 67.5..112.5 -> "←"
-            in 112.5..157.5 -> "↖"
-            in 157.5..202.5 -> "↑"
-            in 202.5..247.5 -> "↗"
-            in 247.5..292.5 -> "→"
-            in 292.5..337.5 -> "↘"
-            else -> ""
-        }
+    private fun getWindArrowRes(diff: Double): Int {
+        val icons = arrayOf(
+            R.drawable.ic_arrow_s, R.drawable.ic_arrow_sw, R.drawable.ic_arrow_w,
+            R.drawable.ic_arrow_nw, R.drawable.ic_arrow_n, R.drawable.ic_arrow_ne,
+            R.drawable.ic_arrow_e, R.drawable.ic_arrow_se, R.drawable.ic_arrow_s
+        )
+        return icons[((diff + 22.5) / 45.0).toInt() % 8]
     }
 
     private fun liveFlow(context: Context): Flow<HUDState> {
@@ -153,17 +146,17 @@ class MyKarooHudDataType(
                 val relAngle = if (diff > 180) 360 - diff else diff 
                 val windColorHex = windColor(relAngle)
 
-                val arrow = getWindArrow(diff)
+                val arrowRes = getWindArrowRes(diff)
 
                 FieldState(
-                    primary = "${windSpeed.roundToInt()} km/h",
-                    label = "$arrow Wind",
+                    primary = "${windSpeed.roundToInt()}",
+                    label = "Wind",
                     color = FieldColor.Custom(windColorHex),
-                    iconRes = R.drawable.ic_col_speed,
-                    colorMode = ZoneColorMode.BACKGROUND
+                    iconRes = arrowRes,
+                    colorMode = ZoneColorMode.TEXT
                 )
             } else {
-                FieldState.searching("Wind", R.drawable.ic_col_speed)
+                FieldState.searching("Wind", R.drawable.ic_arrow_n)
             }
 
             val currentTimeMillis = System.currentTimeMillis()
@@ -175,20 +168,20 @@ class MyKarooHudDataType(
                 primary = "${(wPrimePercent * 100).roundToInt()}%",
                 label = "W' prime",
                 color = FieldColor.Custom(wPrimeColorHex),
-                iconRes = R.drawable.ic_col_power,
-                colorMode = ZoneColorMode.BACKGROUND
+                iconRes = R.drawable.ic_percent,
+                colorMode = ZoneColorMode.TEXT
             )
 
             HUDState(
                 columns = 3,
                 leftSlot = leftSlot,
-                leftColorMode = ZoneColorMode.BACKGROUND,
+                leftColorMode = ZoneColorMode.TEXT,
                 middleSlot = middleSlot,
-                middleColorMode = ZoneColorMode.BACKGROUND,
+                middleColorMode = ZoneColorMode.TEXT,
                 rightSlot = rightSlot,
-                rightColorMode = ZoneColorMode.BACKGROUND,
+                rightColorMode = ZoneColorMode.TEXT,
                 fourthSlot = leftSlot, 
-                fourthColorMode = ZoneColorMode.BACKGROUND,
+                fourthColorMode = ZoneColorMode.TEXT,
                 profile = profile,
                 sparklineBitmap = sparkline.bitmap
             )
