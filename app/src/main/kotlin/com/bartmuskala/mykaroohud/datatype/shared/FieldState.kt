@@ -12,6 +12,7 @@ data class FieldState(
     val iconRes: Int? = null,
     val secondaryIconRes: Int? = null,
     val colorMode: ZoneColorMode = ZoneColorMode.TEXT,
+    val windArrowAngle: Double? = null, // degrees 0-360, 0 = headwind from front, 180 = tailwind from behind
 ) {
     companion object {
         fun unavailable(label: String, iconRes: Int? = null) =

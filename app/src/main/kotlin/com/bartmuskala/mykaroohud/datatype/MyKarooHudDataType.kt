@@ -52,11 +52,10 @@ class MyKarooHudDataType(
     private val wPrimeCalculator = WPrimeCalculator()
 
     private fun windColor(angle: Double): Int {
-        // angle: 0 = tailwind (dark green), 180 = headwind (dark red), 360 = tailwind (dark green)
-        // map 0..180..360 to 0..1..0
+        // angle from "headwind" stream: 0 = wind FROM front (headwind) → RED
+        //                               180 = wind FROM behind (tailwind) → GREEN
         val relativeAngle = if (angle > 180) 360 - angle else angle
-        val factor = relativeAngle / 180.0 // 0 = tailwind, 1 = headwind
-        // factor 0 = green, 1 = red. We want to interpolate.
+        val factor = 1.0 - (relativeAngle / 180.0) // 0 = headwind (angle=0) → factor=1 → RED
         val RDYLGN_GREEN = Color(0xFF1A9850)
         val RDYLGN_YELLOW = Color(0xFFFFE900)
         val RDYLGN_RED = Color(0xFFD73027)
@@ -81,19 +80,6 @@ class MyKarooHudDataType(
             lerp(RDYLGN_YELLOW, RDYLGN_GREEN, ((factor - 0.5) * 2).toFloat())
         }
         return color.toArgb()
-    }
-    private fun getWindArrowRes(diff: Double): Int {
-        val icons = arrayOf(
-            R.drawable.ic_arrow_s, R.drawable.ic_arrow_sw, R.drawable.ic_arrow_w,
-            R.drawable.ic_arrow_nw, R.drawable.ic_arrow_n, R.drawable.ic_arrow_ne,
-            R.drawable.ic_arrow_e, R.drawable.ic_arrow_se, R.drawable.ic_arrow_s
-        )
-        return icons[((diff + 22.5) / 45.0).toInt() % 8]
-    }
-
-    private fun getWindArrowString(diff: Double): String {
-        val angles = arrayOf("↓", "↙", "←", "↖", "↑", "↗", "→", "↘", "↓")
-        return angles[((diff + 22.5) / 45.0).toInt() % 8]
     }
 
     private fun liveFlow(context: Context): Flow<HUDState> {
@@ -146,19 +132,18 @@ class MyKarooHudDataType(
             )
 
             // relativeWindDir: angle in degrees (0-360) between absolute wind direction
-            // and current device heading. 0 = wind from behind (tailwind). 180 = headwind.
-            // windSpeed from headwindSpeed stream is the headwind component: positive = headwind, negative = tailwind.
+            // and current device heading. 0 = wind from front (headwind). 180 = wind from behind (tailwind).
+            // windSpeed (headwindSpeed) is in m/s — convert to km/h for display.
             val leftSlot = if (relativeWindDir != null && windSpeed != null) {
-                // Use the angle-based color (0=tailwind=green, 180=headwind=red)
                 val windColorHex = windColor(relativeWindDir)
-                // Display the headwindSpeed value (positive = headwind, negative = tailwind)
-                // Arrow shows which direction wind comes FROM relative to rider heading
+                val windKmh = windSpeed * 3.6 // convert m/s → km/h
                 FieldState(
-                    primary = "${getWindArrowString(relativeWindDir)} ${windSpeed.roundToInt()}",
+                    primary = windKmh.roundToInt().toString(),
                     label = "Wind",
                     color = FieldColor.Custom(windColorHex),
                     iconRes = R.drawable.ic_col_speed,
-                    colorMode = ZoneColorMode.TEXT
+                    colorMode = ZoneColorMode.TEXT,
+                    windArrowAngle = relativeWindDir
                 )
             } else {
                 FieldState.searching("Wind", R.drawable.ic_col_speed)

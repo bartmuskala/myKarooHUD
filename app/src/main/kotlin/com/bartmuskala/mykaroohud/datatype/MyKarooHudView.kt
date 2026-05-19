@@ -193,6 +193,7 @@ private fun makeFieldRemoteViews(
         cellWidthPx = cellWidthPx,
         color = colors.valueText.toArgb(),
         alignment = alignment,
+        windArrowAngle = field.windArrowAngle,
     )
     rv.setImageViewBitmap(R.id.field_value, valueBitmap)
 
