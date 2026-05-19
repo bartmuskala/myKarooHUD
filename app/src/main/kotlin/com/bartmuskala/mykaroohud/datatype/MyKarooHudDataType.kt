@@ -52,24 +52,27 @@ class MyKarooHudDataType(
     private val wPrimeCalculator = WPrimeCalculator()
 
     private fun windColor(speedKmh: Double): Int {
-        // speedKmh from headwindSpeed × 3.6:
-        //   positive = headwind (wind pushing against rider) → RED
-        //   negative = tailwind (wind pushing rider forward) → GREEN
-        //   0 = no wind component → YELLOW
-        // Clamp to ±40 km/h for full color range
-        val clamped = speedKmh.coerceIn(-40.0, 40.0)
-        val factor = (clamped + 40.0) / 80.0 // 0.0 = full tailwind, 0.5 = neutral, 1.0 = full headwind
-        val RDYLGN_GREEN = Color(0xFF1A9850)
-        val RDYLGN_YELLOW = Color(0xFFFFE900)
-        val RDYLGN_RED = Color(0xFFD73027)
-
-        val color = if (factor < 0.5) {
-            lerp(RDYLGN_GREEN, RDYLGN_YELLOW, (factor * 2).toFloat())
-        } else {
-            lerp(RDYLGN_YELLOW, RDYLGN_RED, ((factor - 0.5) * 2).toFloat())
+        // Stepped color bands based on headwind speed:
+        //  >= +30 : dark red    (strong headwind)
+        //  +20..<+30: red
+        //  +10..<+20: orange
+        //  +5 ..<+10: yellow
+        //  -5 ..+5 : grey      (roughly neutral)
+        // -15 ..<-5 : light green
+        // -30 ..<-15: dark green
+        //  < -30   : blue      (strong tailwind)
+        return when {
+            speedKmh >= 30  -> 0xFF8B0000.toInt()  // dark red
+            speedKmh >= 20  -> 0xFFCC0000.toInt()  // red
+            speedKmh >= 10  -> 0xFFFF8C00.toInt()  // orange
+            speedKmh >= 5   -> 0xFFFFE900.toInt()  // yellow
+            speedKmh >= -5  -> 0xFF888888.toInt()  // grey (neutral)
+            speedKmh >= -15 -> 0xFF66BB6A.toInt()  // light green
+            speedKmh >= -30 -> 0xFF1A9850.toInt()  // dark green
+            else            -> 0xFF1565C0.toInt()  // blue (very strong tailwind)
         }
-        return color.toArgb()
     }
+
 
     private fun wPrimeColor(percent: Double): Int {
         val factor = percent // 0.0 to 1.0. 0 = Red, 1 = Green
