@@ -1,0 +1,11 @@
+{
+    "label": "Barberfish",
+    "packageName": "com.bartmuskala.mykaroohud",
+    "iconUrl": "https://github.com/jpweytjens/barberfish/releases/latest/download/ic_extension.png",
+    "latestApkUrl": "https://github.com/jpweytjens/barberfish/releases/latest/download/barberfish.apk",
+    "latestVersion": "1.0",
+    "latestVersionCode": 1,
+    "developer": "github.com/jpweytjens",
+    "description": "Barberfish keeps Hammerheads sharp, on your handlebars and in the ocean. Native-feeling data field enhancements for the Hammerhead Karoo.",
+    "releaseNotes": ""
+}

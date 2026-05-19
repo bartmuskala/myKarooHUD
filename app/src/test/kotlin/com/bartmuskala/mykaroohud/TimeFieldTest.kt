@@ -1,0 +1,75 @@
+package com.bartmuskala.mykaroohud
+
+import com.bartmuskala.mykaroohud.datatype.formatTime
+import com.bartmuskala.mykaroohud.extension.TimeFormat
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class TimeFieldTest {
+
+    // --- RACING ---
+
+    @Test fun racing_0s() = assertEquals("0'00\"", formatTime(0L, TimeFormat.RACING))
+
+    @Test fun racing_5s() = assertEquals("0'05\"", formatTime(5L, TimeFormat.RACING))
+
+    @Test fun racing_32s() = assertEquals("0'32\"", formatTime(32L, TimeFormat.RACING))
+
+    @Test fun racing_59s() = assertEquals("0'59\"", formatTime(59L, TimeFormat.RACING))
+
+    @Test fun racing_60s() = assertEquals("1'00\"", formatTime(60L, TimeFormat.RACING))
+
+    @Test fun racing_180s() = assertEquals("3'00\"", formatTime(180L, TimeFormat.RACING))
+
+    @Test fun racing_3599s() = assertEquals("59'59\"", formatTime(3599L, TimeFormat.RACING))
+
+    @Test fun racing_3600s() = assertEquals("1h0'00\"", formatTime(3600L, TimeFormat.RACING))
+
+    @Test fun racing_5025s() = assertEquals("1h23'45\"", formatTime(5025L, TimeFormat.RACING))
+
+    // --- CLOCK ---
+
+    @Test fun clock_0s() = assertEquals("0:00:00", formatTime(0L, TimeFormat.CLOCK))
+
+    @Test fun clock_5s() = assertEquals("0:00:05", formatTime(5L, TimeFormat.CLOCK))
+
+    @Test fun clock_32s() = assertEquals("0:00:32", formatTime(32L, TimeFormat.CLOCK))
+
+    @Test fun clock_59s() = assertEquals("0:00:59", formatTime(59L, TimeFormat.CLOCK))
+
+    @Test fun clock_60s() = assertEquals("0:01:00", formatTime(60L, TimeFormat.CLOCK))
+
+    @Test fun clock_180s() = assertEquals("0:03:00", formatTime(180L, TimeFormat.CLOCK))
+
+    @Test fun clock_3599s() = assertEquals("0:59:59", formatTime(3599L, TimeFormat.CLOCK))
+
+    @Test fun clock_3600s() = assertEquals("1:00:00", formatTime(3600L, TimeFormat.CLOCK))
+
+    @Test fun clock_5025s() = assertEquals("1:23:45", formatTime(5025L, TimeFormat.CLOCK))
+
+    // --- HM_S ---
+
+    @Test fun hms_0s() = assertEquals("0s", formatTime(0L, TimeFormat.HM_S))
+
+    @Test fun hms_5s() = assertEquals("5s", formatTime(5L, TimeFormat.HM_S))
+
+    @Test fun hms_59s() = assertEquals("59s", formatTime(59L, TimeFormat.HM_S))
+
+    @Test fun hms_60s() = assertEquals("1m0s", formatTime(60L, TimeFormat.HM_S))
+
+    @Test fun hms_90s() = assertEquals("1m30s", formatTime(90L, TimeFormat.HM_S))
+
+    @Test fun hms_3599s() = assertEquals("59m59s", formatTime(3599L, TimeFormat.HM_S))
+
+    @Test fun hms_3600s() = assertEquals("1h0m0s", formatTime(3600L, TimeFormat.HM_S))
+
+    @Test fun hms_5025s() = assertEquals("1h23m45s", formatTime(5025L, TimeFormat.HM_S))
+
+    // --- Negative guard ---
+
+    @Test fun racing_negative() = assertEquals("0'00\"", formatTime(-1L, TimeFormat.RACING))
+
+    @Test fun clock_negative() = assertEquals("0:00:00", formatTime(-1L, TimeFormat.CLOCK))
+
+    @Test fun hms_negative() = assertEquals("0s", formatTime(-1L, TimeFormat.HM_S))
+}

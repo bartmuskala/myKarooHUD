@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:name=".MyKarooHudApplication"
+        android:icon="@drawable/ic_extension"
+        android:label="@string/extension_name">
+
+        <service
+            android:name=".extension.MyKarooHudExtension"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="io.hammerhead.karooext.KAROO_EXTENSION" />
+            </intent-filter>
+            <meta-data
+                android:name="io.hammerhead.karooext.EXTENSION_INFO"
+                android:resource="@xml/extension_info" />
+        </service>
+
+        <meta-data
+            android:name="io.hammerhead.karooext.MANIFEST_URL"
+            android:value="https://github.com/jpweytjens/mykaroohud/releases/latest/download/manifest.json" />
+
+        <activity
+            android:name=".screens.MainActivity"
+            android:exported="true"
+            android:label="@string/extension_name"
+            android:theme="@style/Theme.MyKarooHud">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".extension.SparklineTapReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.bartmuskala.mykaroohud.SPARKLINE_TAP" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+</manifest>
