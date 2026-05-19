@@ -99,8 +99,10 @@ class MyKarooHudDataType(
     private fun liveFlow(context: Context): Flow<HUDState> {
         val powerFlow = karooSystem.streamDataFlow(DataType.Type.SMOOTHED_3S_AVERAGE_POWER).onStart { emit(StreamState.Idle) }
         val instantPowerFlow = karooSystem.streamDataFlow(DataType.Type.POWER).onStart { emit(StreamState.Idle) }
-        val headingFlow = karooSystem.streamDataFlow(DataType.Type.HEADING).onStart { emit(StreamState.Idle) }
-        val absoluteWindDirFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "windDirection")).onStart { emit(StreamState.Idle) }
+        // relativeWindDirFlow: the "headwind" stream from karoo-headwind gives the relative angle
+        // (diff) between absolute wind direction and current heading. 0 = tailwind, 180 = headwind.
+        val relativeWindDirFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "headwind")).onStart { emit(StreamState.Idle) }
+        // headwindSpeed: the headwind component in m/s. Negative = tailwind, positive = headwind.
         val windSpeedFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "headwindSpeed")).onStart { emit(StreamState.Idle) }
         
         val sparklineFlow = sparklineBitmapFlow(
@@ -113,8 +115,7 @@ class MyKarooHudDataType(
         return combine(
             powerFlow,
             instantPowerFlow,
-            headingFlow,
-            absoluteWindDirFlow,
+            relativeWindDirFlow,
             windSpeedFlow,
             karooSystem.streamUserProfile(),
             context.streamMyKarooHudConfig(),
@@ -123,17 +124,15 @@ class MyKarooHudDataType(
             
             val pStream = args[0] as StreamState
             val pInstStream = args[1] as StreamState
-            val hStream = args[2] as StreamState
-            val wDirStream = args[3] as StreamState
-            val wSpeedStream = args[4] as StreamState
-            val profile = args[5] as UserProfile
-            val config = args[6] as MyKarooHudConfig
-            val sparkline = args[7] as SparklineFrame
+            val wDirStream = args[2] as StreamState
+            val wSpeedStream = args[3] as StreamState
+            val profile = args[4] as UserProfile
+            val config = args[5] as MyKarooHudConfig
+            val sparkline = args[6] as SparklineFrame
 
             val pInst = (pInstStream as? StreamState.Streaming)?.dataPoint?.singleValue ?: 0.0
             val p3s = (pStream as? StreamState.Streaming)?.dataPoint?.singleValue ?: 0.0
-            val heading = (hStream as? StreamState.Streaming)?.dataPoint?.singleValue
-            val absoluteWindDir = (wDirStream as? StreamState.Streaming)?.dataPoint?.singleValue
+            val relativeWindDir = (wDirStream as? StreamState.Streaming)?.dataPoint?.singleValue
             val windSpeed = (wSpeedStream as? StreamState.Streaming)?.dataPoint?.singleValue
 
             val powerZone = powerZone(p3s, profile.powerZones)
@@ -146,23 +145,16 @@ class MyKarooHudDataType(
                 colorMode = ZoneColorMode.TEXT
             )
 
-            val leftSlot = if (heading != null && absoluteWindDir != null && windSpeed != null) {
-                val diff = (absoluteWindDir - heading + 360) % 360
-                val clampedSpeed = windSpeed.coerceIn(-30.0, 30.0)
-                val factor = (clampedSpeed + 30.0) / 60.0 // -30 -> 0 (Red), +30 -> 1 (Green)
-
-                val RDYLGN_RED = Color(0xFFD73027)
-                val RDYLGN_YELLOW = Color(0xFFFFE900)
-                val RDYLGN_GREEN = Color(0xFF1A9850)
-
-                val windColorHex = if (factor < 0.5) {
-                    lerp(RDYLGN_RED, RDYLGN_YELLOW, (factor * 2).toFloat())
-                } else {
-                    lerp(RDYLGN_YELLOW, RDYLGN_GREEN, ((factor - 0.5) * 2).toFloat())
-                }.toArgb()
-
+            // relativeWindDir: angle in degrees (0-360) between absolute wind direction
+            // and current device heading. 0 = wind from behind (tailwind). 180 = headwind.
+            // windSpeed from headwindSpeed stream is the headwind component: positive = headwind, negative = tailwind.
+            val leftSlot = if (relativeWindDir != null && windSpeed != null) {
+                // Use the angle-based color (0=tailwind=green, 180=headwind=red)
+                val windColorHex = windColor(relativeWindDir)
+                // Display the headwindSpeed value (positive = headwind, negative = tailwind)
+                // Arrow shows which direction wind comes FROM relative to rider heading
                 FieldState(
-                    primary = "${getWindArrowString(diff)} ${windSpeed.roundToInt()}",
+                    primary = "${getWindArrowString(relativeWindDir)} ${windSpeed.roundToInt()}",
                     label = "Wind",
                     color = FieldColor.Custom(windColorHex),
                     iconRes = R.drawable.ic_col_speed,
@@ -173,7 +165,6 @@ class MyKarooHudDataType(
             }
 
             val currentTimeMillis = System.currentTimeMillis()
-            wPrimeCalculator.resetRideState(currentTimeMillis, config.cp, config.wPrimeJoules)
             val wPrimePercent = wPrimeCalculator.calculateWPrimeBalancePercent(pInst, currentTimeMillis)
             val wPrimeColorHex = wPrimeColor(wPrimePercent)
 
@@ -220,14 +211,14 @@ class MyKarooHudDataType(
         ) { profile, sparkline ->
             HUDState(
                 columns = 3,
-                leftSlot = FieldState("25", "Wind", FieldColor.Custom(windColor(45.0)), R.drawable.ic_col_speed, colorMode = ZoneColorMode.BACKGROUND),
-                leftColorMode = ZoneColorMode.BACKGROUND,
-                middleSlot = FieldState("250", "Power", zoneFieldColor(4, ZoneColorMode.BACKGROUND, profile, ZoneConfig(), false), R.drawable.ic_col_power, colorMode = ZoneColorMode.BACKGROUND),
-                middleColorMode = ZoneColorMode.BACKGROUND,
-                rightSlot = FieldState("85%", "W' prime", FieldColor.Custom(wPrimeColor(0.85)), R.drawable.ic_col_power, colorMode = ZoneColorMode.BACKGROUND),
-                rightColorMode = ZoneColorMode.BACKGROUND,
+                leftSlot = FieldState("↑ -19", "Wind", FieldColor.Custom(windColor(180.0)), R.drawable.ic_col_speed, colorMode = ZoneColorMode.TEXT),
+                leftColorMode = ZoneColorMode.TEXT,
+                middleSlot = FieldState("250", "Power", zoneFieldColor(4, ZoneColorMode.TEXT, profile, ZoneConfig(powerPalette = com.bartmuskala.mykaroohud.datatype.shared.ZonePalette.ZWIFT), false), R.drawable.ic_col_power, colorMode = ZoneColorMode.TEXT),
+                middleColorMode = ZoneColorMode.TEXT,
+                rightSlot = FieldState("85%", "W' prime", FieldColor.Custom(wPrimeColor(0.85)), R.drawable.ic_percent, colorMode = ZoneColorMode.TEXT),
+                rightColorMode = ZoneColorMode.TEXT,
                 fourthSlot = FieldState("", "", FieldColor.Default),
-                fourthColorMode = ZoneColorMode.BACKGROUND,
+                fourthColorMode = ZoneColorMode.TEXT,
                 profile = profile,
                 sparklineBitmap = sparkline.bitmap
             )
