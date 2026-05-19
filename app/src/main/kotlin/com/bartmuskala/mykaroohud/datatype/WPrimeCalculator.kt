@@ -7,7 +7,7 @@ class WPrimeCalculator {
 
     private var wPrimeBalance: Double = 0.0
     private var cP: Double = 250.0
-    private var wPrimeCapacity: Double = 20000.0
+    private var wPrimeCapacity: Double = 16000.0
 
     private var countPowerBelowCP: Long = 0
     private var sumPowerBelowCP: Double = 0.0

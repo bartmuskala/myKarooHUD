@@ -42,8 +42,9 @@ private suspend inline fun <reified T> Context.saveConfig(
 
 @Serializable
 data class MyKarooHudConfig(
-    val wPrimeJoules: Int = 20000,
-    val criticalPower: Int = 250
+    val cp: Int = 250,
+    val wPrimeJoules: Int = 16000,
+    val useSmoothedPower: Boolean = true
 )
 
 private val configKey = stringPreferencesKey("mykaroohud_config")

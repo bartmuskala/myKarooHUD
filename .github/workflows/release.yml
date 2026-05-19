@@ -24,14 +24,26 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug
+      - name: Build with Gradle and Generate Manifest
+        run: ./gradlew assembleRelease generateManifest
 
-      - name: Upload artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: myKarooHUD
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: app-release
+          path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload Manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest
+          path: app/manifest.json
+
+      - name: Upload Icon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: icon
+          path: ic_extension.png
 
   release:
     needs: build
@@ -40,13 +52,28 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download artifact
+      - name: Download APK
         uses: actions/download-artifact@v4
         with:
-          name: myKarooHUD
+          name: app-release
+          path: .
+
+      - name: Download Manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: manifest
+          path: .
+
+      - name: Download Icon
+        uses: actions/download-artifact@v4
+        with:
+          name: icon
           path: .
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app-debug.apk
+          files: |
+            app-release.apk
+            manifest.json
+            ic_extension.png

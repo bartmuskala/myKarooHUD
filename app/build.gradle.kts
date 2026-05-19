@@ -19,8 +19,8 @@ android {
         applicationId = "com.bartmuskala.mykaroohud"
         minSdk = 23
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.0.5"
+        versionCode = 9
+        versionName = "1.0.6"
     }
 
     signingConfigs {
@@ -73,7 +73,7 @@ tasks.register("generateManifest") {
             "label" to "MyKarooHud",
             "packageName" to "com.bartmuskala.mykaroohud",
             "iconUrl" to "$baseUrl/ic_extension.png",
-            "latestApkUrl" to "$baseUrl/app-release-unsigned.apk",
+            "latestApkUrl" to "$baseUrl/app-release.apk",
             "latestVersion" to android.defaultConfig.versionName,
             "latestVersionCode" to android.defaultConfig.versionCode,
             "developer" to "github.com/bartmuskala",
