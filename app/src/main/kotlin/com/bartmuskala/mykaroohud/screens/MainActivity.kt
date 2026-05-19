@@ -53,13 +53,13 @@ class MainActivity : ComponentActivity() {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text("Critical Power (CP / FTP in Watts)")
-            var cpText by remember(config.criticalPower) { mutableStateOf(config.criticalPower.toString()) }
+            var cpText by remember(config.cp) { mutableStateOf(config.cp.toString()) }
             OutlinedTextField(
                 value = cpText,
                 onValueChange = { 
                     cpText = it
                     it.toIntOrNull()?.let { cp ->
-                        scope.launch { saveMyKarooHudConfig(config.copy(criticalPower = cp)) }
+                        scope.launch { saveMyKarooHudConfig(config.copy(cp = cp)) }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()

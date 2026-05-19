@@ -1,11 +1,11 @@
 {
-    "label": "Barberfish",
+    "label": "MyKarooHud",
     "packageName": "com.bartmuskala.mykaroohud",
-    "iconUrl": "https://github.com/jpweytjens/barberfish/releases/latest/download/ic_extension.png",
-    "latestApkUrl": "https://github.com/jpweytjens/barberfish/releases/latest/download/barberfish.apk",
-    "latestVersion": "1.0",
-    "latestVersionCode": 1,
-    "developer": "github.com/jpweytjens",
-    "description": "Barberfish keeps Hammerheads sharp, on your handlebars and in the ocean. Native-feeling data field enhancements for the Hammerhead Karoo.",
+    "iconUrl": "https://github.com/bartmuskala/myKarooHUD/releases/latest/download/ic_extension.png",
+    "latestApkUrl": "https://github.com/bartmuskala/myKarooHUD/releases/latest/download/app-release.apk",
+    "latestVersion": "1.0.8",
+    "latestVersionCode": 11,
+    "developer": "github.com/bartmuskala",
+    "description": "MyKarooHud keeps Hammerheads sharp, on your handlebars and in the ocean. Native-feeling data field enhancements for the Hammerhead Karoo.",
     "releaseNotes": ""
 }
