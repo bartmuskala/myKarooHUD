@@ -21,7 +21,7 @@
 
         <meta-data
             android:name="io.hammerhead.karooext.MANIFEST_URL"
-            android:value="https://github.com/jpweytjens/mykaroohud/releases/latest/download/manifest.json" />
+            android:value="https://github.com/bartmuskala/myKarooHUD/releases/latest/download/manifest.json" />
 
         <activity
             android:name=".screens.MainActivity"

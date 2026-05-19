@@ -19,8 +19,8 @@ android {
         applicationId = "com.bartmuskala.mykaroohud"
         minSdk = 23
         targetSdk = 34
-        versionCode = 6
-        versionName = "3.2"
+        versionCode = 1
+        versionName = "1.0.2"
     }
 
     signingConfigs {
@@ -64,16 +64,16 @@ tasks.register("generateManifest") {
     group = "build"
 
     doLast {
-        val baseUrl = System.getenv("BASE_URL") ?: "https://github.com/jpweytjens/mykaroohud/releases/latest/download"
+        val baseUrl = System.getenv("BASE_URL") ?: "https://github.com/bartmuskala/myKarooHUD/releases/latest/download"
         val manifestFile = file("$projectDir/manifest.json")
         val manifest = mapOf(
             "label" to "MyKarooHud",
             "packageName" to "com.bartmuskala.mykaroohud",
             "iconUrl" to "$baseUrl/ic_extension.png",
-            "latestApkUrl" to "$baseUrl/mykaroohud.apk",
+            "latestApkUrl" to "$baseUrl/app-release-unsigned.apk",
             "latestVersion" to android.defaultConfig.versionName,
             "latestVersionCode" to android.defaultConfig.versionCode,
-            "developer" to "github.com/jpweytjens",
+            "developer" to "github.com/bartmuskala",
             "description" to "MyKarooHud keeps Hammerheads sharp, on your handlebars and in the ocean. Native-feeling data field enhancements for the Hammerhead Karoo.",
             "releaseNotes" to (System.getenv("RELEASE_NOTES") ?: "")
         )
