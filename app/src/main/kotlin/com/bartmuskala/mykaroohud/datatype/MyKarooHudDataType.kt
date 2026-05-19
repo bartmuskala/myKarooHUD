@@ -91,12 +91,17 @@ class MyKarooHudDataType(
         return icons[((diff + 22.5) / 45.0).toInt() % 8]
     }
 
+    private fun getWindArrowString(diff: Double): String {
+        val angles = arrayOf("↓", "↙", "←", "↖", "↑", "↗", "→", "↘", "↓")
+        return angles[((diff + 22.5) / 45.0).toInt() % 8]
+    }
+
     private fun liveFlow(context: Context): Flow<HUDState> {
         val powerFlow = karooSystem.streamDataFlow(DataType.Type.SMOOTHED_3S_AVERAGE_POWER).onStart { emit(StreamState.Idle) }
         val instantPowerFlow = karooSystem.streamDataFlow(DataType.Type.POWER).onStart { emit(StreamState.Idle) }
         val headingFlow = karooSystem.streamDataFlow(DataType.Type.HEADING).onStart { emit(StreamState.Idle) }
         val absoluteWindDirFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "windDirection")).onStart { emit(StreamState.Idle) }
-        val windSpeedFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "windSpeed")).onStart { emit(StreamState.Idle) }
+        val windSpeedFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "headwindSpeed")).onStart { emit(StreamState.Idle) }
         
         val sparklineFlow = sparklineBitmapFlow(
             karooSystem, context,
@@ -132,31 +137,32 @@ class MyKarooHudDataType(
             val windSpeed = (wSpeedStream as? StreamState.Streaming)?.dataPoint?.singleValue
 
             val powerZone = powerZone(p3s, profile.powerZones)
-            val powerColor = zoneFieldColor(powerZone, ZoneColorMode.BACKGROUND, profile, ZoneConfig(), isHr = false)
+            val powerColor = zoneFieldColor(powerZone, ZoneColorMode.TEXT, profile, ZoneConfig(powerPalette = com.bartmuskala.mykaroohud.datatype.shared.ZonePalette.ZWIFT), isHr = false)
             val middleSlot = FieldState(
                 primary = p3s.roundToInt().toString(),
                 label = "Power",
                 color = powerColor,
                 iconRes = R.drawable.ic_col_power,
-                colorMode = ZoneColorMode.BACKGROUND
+                colorMode = ZoneColorMode.TEXT
             )
 
             val leftSlot = if (heading != null && absoluteWindDir != null && windSpeed != null) {
                 val diff = (absoluteWindDir - heading + 360) % 360
-                val relAngle = if (diff > 180) 360 - diff else diff 
-                val windColorHex = windColor(relAngle)
-
-                val arrowRes = getWindArrowRes(diff)
+                val windColorHex = when {
+                    windSpeed > 0 -> Color(0xFF1A9850).toArgb() // Tailwind = Green
+                    windSpeed < 0 -> Color(0xFFD73027).toArgb() // Headwind = Red
+                    else -> Color(0xFF7D7D7D).toArgb()
+                }
 
                 FieldState(
-                    primary = "${windSpeed.roundToInt()}",
+                    primary = "${getWindArrowString(diff)} ${windSpeed.roundToInt()}",
                     label = "Wind",
                     color = FieldColor.Custom(windColorHex),
-                    iconRes = arrowRes,
+                    iconRes = R.drawable.ic_col_speed,
                     colorMode = ZoneColorMode.TEXT
                 )
             } else {
-                FieldState.searching("Wind", R.drawable.ic_arrow_n)
+                FieldState.searching("Wind", R.drawable.ic_col_speed)
             }
 
             val currentTimeMillis = System.currentTimeMillis()

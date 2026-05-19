@@ -19,8 +19,8 @@ android {
         applicationId = "com.bartmuskala.mykaroohud"
         minSdk = 23
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.3"
+        versionCode = 7
+        versionName = "1.0.4"
     }
 
     signingConfigs {
