@@ -65,7 +65,9 @@ fun renderValueBitmap(
     val width = measuredWidth.toInt().coerceIn(1, cellW)
 
     val bounds = Rect()
-    paint.getTextBounds(mainText, 0, mainText.length, bounds)
+    // Use a fixed reference glyph ("0") for baseline computation so all fields
+    // sit on the same baseline regardless of content (arrows, %, digits, etc.)
+    paint.getTextBounds("0", 0, 1, bounds)
     val baselineY = (bitmapHeightPx - bounds.bottom).toFloat()
 
     val bitmap = Bitmap.createBitmap(width, bitmapHeightPx, Bitmap.Config.ARGB_8888)
