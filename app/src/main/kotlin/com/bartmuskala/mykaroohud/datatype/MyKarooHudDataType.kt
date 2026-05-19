@@ -51,11 +51,14 @@ class MyKarooHudDataType(
 
     private val wPrimeCalculator = WPrimeCalculator()
 
-    private fun windColor(angle: Double): Int {
-        // angle from "headwind" stream: 0 = wind FROM front (headwind) → RED
-        //                               180 = wind FROM behind (tailwind) → GREEN
-        val relativeAngle = if (angle > 180) 360 - angle else angle
-        val factor = 1.0 - (relativeAngle / 180.0) // 0 = headwind (angle=0) → factor=1 → RED
+    private fun windColor(speedKmh: Double): Int {
+        // speedKmh from headwindSpeed × 3.6:
+        //   positive = headwind (wind pushing against rider) → RED
+        //   negative = tailwind (wind pushing rider forward) → GREEN
+        //   0 = no wind component → YELLOW
+        // Clamp to ±40 km/h for full color range
+        val clamped = speedKmh.coerceIn(-40.0, 40.0)
+        val factor = (clamped + 40.0) / 80.0 // 0.0 = full tailwind, 0.5 = neutral, 1.0 = full headwind
         val RDYLGN_GREEN = Color(0xFF1A9850)
         val RDYLGN_YELLOW = Color(0xFFFFE900)
         val RDYLGN_RED = Color(0xFFD73027)
@@ -131,12 +134,11 @@ class MyKarooHudDataType(
                 colorMode = ZoneColorMode.TEXT
             )
 
-            // relativeWindDir: angle in degrees (0-360) between absolute wind direction
-            // and current device heading. 0 = wind from front (headwind). 180 = wind from behind (tailwind).
-            // windSpeed (headwindSpeed) is in m/s — convert to km/h for display.
+            // relativeWindDir: angle (0-360°) from the "headwind" data type.
+            // windSpeed (headwindSpeed): positive = headwind, negative = tailwind, in m/s.
             val leftSlot = if (relativeWindDir != null && windSpeed != null) {
-                val windColorHex = windColor(relativeWindDir)
-                val windKmh = windSpeed * 3.6 // convert m/s → km/h
+                val windKmh = windSpeed * 3.6 // m/s → km/h
+                val windColorHex = windColor(windKmh) // positive km/h = headwind = RED
                 FieldState(
                     primary = windKmh.roundToInt().toString(),
                     label = "Wind",

@@ -19,8 +19,8 @@ android {
         applicationId = "com.bartmuskala.mykaroohud"
         minSdk = 23
         targetSdk = 34
-        versionCode = 14
-        versionName = "1.2.0"
+        versionCode = 15
+        versionName = "1.2.1"
     }
 
     signingConfigs {
@@ -77,7 +77,7 @@ tasks.register("generateManifest") {
             "latestVersion" to android.defaultConfig.versionName,
             "latestVersionCode" to android.defaultConfig.versionCode,
             "developer" to "github.com/bartmuskala",
-            "description" to "MyKarooHud keeps Hammerheads sharp, on your handlebars and in the ocean. Native-feeling data field enhancements for the Hammerhead Karoo.",
+            "description" to "MyKarooHUD: a cycling HUD for the Hammerhead Karoo showing wind speed & direction, 3s power with Zwift zone colors, and W\u2019 prime balance.",
             "releaseNotes" to (System.getenv("RELEASE_NOTES") ?: "")
         )
 
