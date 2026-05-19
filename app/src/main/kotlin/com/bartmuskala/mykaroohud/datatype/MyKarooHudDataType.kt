@@ -33,7 +33,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -95,18 +99,18 @@ class MyKarooHudDataType(
     }
 
     private fun liveFlow(context: Context): Flow<HUDState> {
-        val powerFlow = karooSystem.streamDataFlow(DataType.Type.SMOOTHED_3S_AVERAGE_POWER)
-        val instantPowerFlow = karooSystem.streamDataFlow(DataType.Type.POWER)
-        val headingFlow = karooSystem.streamDataFlow(DataType.Type.HEADING)
-        val absoluteWindDirFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "windDirection"))
-        val windSpeedFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "windSpeed"))
+        val powerFlow = karooSystem.streamDataFlow(DataType.Type.SMOOTHED_3S_AVERAGE_POWER).onStart { emit(StreamState.Idle) }
+        val instantPowerFlow = karooSystem.streamDataFlow(DataType.Type.POWER).onStart { emit(StreamState.Idle) }
+        val headingFlow = karooSystem.streamDataFlow(DataType.Type.HEADING).onStart { emit(StreamState.Idle) }
+        val absoluteWindDirFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "windDirection")).onStart { emit(StreamState.Idle) }
+        val windSpeedFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "windSpeed")).onStart { emit(StreamState.Idle) }
         
         val sparklineFlow = sparklineBitmapFlow(
             karooSystem, context,
             widthPx = 800, // Roughly standard width, will be scaled
             heightPx = 80,
             isPreview = false
-        )
+        ).onStart { emit(SparklineFrame(null, 0f, 5, true)) }
 
         return combine(
             powerFlow,
@@ -188,6 +192,12 @@ class MyKarooHudDataType(
                 profile = profile,
                 sparklineBitmap = sparkline.bitmap
             )
+        }.onStart {
+            Timber.d("liveFlow combine started")
+        }.catch { e ->
+            Timber.e(e, "Error in liveFlow combine")
+        }.onEach {
+            Timber.d("liveFlow emitted HUDState")
         }
     }
 
@@ -219,12 +229,14 @@ class MyKarooHudDataType(
     }
 
     override fun startView(context: Context, config: ViewConfig, emitter: ViewEmitter) {
+        Timber.d("startView called preview=${config.preview}")
         emitter.onNext(UpdateGraphicConfig(showHeader = false))
         val scope = CoroutineScope(Dispatchers.IO + Job())
         emitter.setCancellable { scope.cancel() }
         scope.launch {
             val flow = if (config.preview) previewFlow(context) else liveFlow(context)
             flow.collect { state -> 
+                Timber.d("startView collected state, updating view")
                 emitter.updateView(renderState(state, config, context)) 
             }
         }
