@@ -155,7 +155,12 @@ class MyKarooHudDataType(
             }
 
             val currentTimeMillis = System.currentTimeMillis()
-            val wPrimePercent = wPrimeCalculator.calculateWPrimeBalancePercent(pInst, currentTimeMillis)
+            val wPrimePercent = wPrimeCalculator.calculateWPrimeBalancePercent(
+                powerWatts      = pInst,
+                currentTimeMillis = currentTimeMillis,
+                cp              = config.cp,
+                wPrimeJoules    = config.wPrimeJoules,
+            )
             val wPrimeColorHex = wPrimeColor(wPrimePercent)
 
             val rightSlot = FieldState(
