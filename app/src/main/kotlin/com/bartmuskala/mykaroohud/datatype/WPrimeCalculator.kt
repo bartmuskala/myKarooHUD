@@ -3,52 +3,57 @@ package com.bartmuskala.mykaroohud.datatype
 import kotlin.math.exp
 
 /**
- * W' Prime Balance calculator using the Skiba (2012) differential equation model.
+ * W' Prime Balance calculator — Skiba (2012) ODE model.
  *
- * Model rules:
- *   - Above CP: W' depletes linearly at rate (P − CP) W per second.
- *   - Below CP: W' recovers exponentially toward W'cap with time constant τ.
+ * Recovery model (below CP):
+ *   W'(t+dt) = W'cap − (W'cap − W'(t)) × e^(−dt/τ)
+ *   τ = 546 × exp(−0.01 × (CP − P̄sub)) + 316  [Skiba 2012]
  *
- * τ (Skiba 2012):
- *   τ = 546 × exp(−0.01 × (CP − P̄sub)) + 316
- *   where P̄sub is the running mean of power recorded while below CP.
- *   Smaller δCP (power close to CP) → larger τ → slower recovery.
- *   Larger δCP (power far below CP) → smaller τ → faster recovery.
+ * Depletion model (above CP):
+ *   W'(t+dt) = W'(t) − (P − CP) × dt
  *
- * Config is accepted on every call and the state is automatically reset
- * when CP or W'cap changes, so the user can adjust settings mid-ride and
- * have the model re-initialise cleanly without needing an explicit reset.
+ * PAUSE / SILENT POWER PERIODS:
+ *   Recovery MUST continue when the rider is stopped or the device is paused.
+ *   Stopping is physiologically indistinguishable from riding at 0 W which is
+ *   well below CP.  The reference karoo-wprimebalance extension handles this
+ *   with a 0 W recovery ticker during silent periods.
+ *
+ *   We implement the same by accepting actual wall-clock elapsed time for
+ *   recovery, with only a generous cap (30 min) to guard against multi-hour
+ *   app restarts.  Depletion is capped at 5 s to absorb sensor/GPS spikes.
  */
 class WPrimeCalculator {
 
-    // Current balance (Joules). -1 = uninitialized / needs first-call setup.
+    // Current balance (Joules). Negative = uninitialized.
     private var wPrimeBalance: Double = -1.0
 
     // Config shadow – detect changes so we can auto-reset.
-    private var lastCp: Int    = -1
+    private var lastCp: Int     = -1
     private var lastWPrime: Int = -1
 
     // Model parameters (set from config on first call / config change)
-    private var cP: Double            = 250.0
+    private var cP: Double             = 250.0
     private var wPrimeCapacity: Double = 16000.0
 
-    // Running statistics for τ calculation (Skiba sub-CP average)
+    // Running statistics for τ (Skiba sub-CP average)
     private var sumPowerBelowCp: Double  = 0.0
     private var countPowerBelowCp: Long  = 0L
-    private var avgPowerBelowCp: Double  = 0.0   // P̄sub
-    private var currentTau: Double        = 546.0 * exp(-0.01 * 250.0) + 316.0
+    private var avgPowerBelowCp: Double  = 0.0
+    private var currentTau: Double       = tauForDeltaCp(250.0)
 
     private var prevTimeMillis: Long = 0L
 
-    // -----------------------------------------------------------------------
+    // ------------------------------------------------------------------
 
     /**
-     * Call once per sensor update. Returns W'balance as a fraction 0.0–1.0.
+     * Call once per sensor update or once per ticker beat.
+     * Returns W'balance as a fraction 0.0–1.0.
      *
-     * @param powerWatts      Instantaneous power in Watts (use instant, not 3-s avg)
-     * @param currentTimeMillis System.currentTimeMillis()
-     * @param cp              Critical Power in Watts (from user settings)
-     * @param wPrimeJoules    W' capacity in Joules (from user settings)
+     * @param powerWatts      Instantaneous power in Watts.
+     *                        Pass 0.0 during pauses / recovery ticks.
+     * @param currentTimeMillis  System.currentTimeMillis()
+     * @param cp              Critical Power in Watts (from settings)
+     * @param wPrimeJoules    W' capacity in Joules (from settings)
      */
     fun calculateWPrimeBalancePercent(
         powerWatts: Double,
@@ -64,7 +69,7 @@ class WPrimeCalculator {
             sumPowerBelowCp   = 0.0
             countPowerBelowCp = 0L
             avgPowerBelowCp   = 0.0
-            currentTau = tauForDeltaCp(cP - avgPowerBelowCp)
+            currentTau = tauForDeltaCp(cP)   // τ at zero average sub-CP power
             prevTimeMillis = currentTimeMillis
             lastCp     = cp
             lastWPrime = wPrimeJoules
@@ -74,30 +79,36 @@ class WPrimeCalculator {
         // First ever call
         if (prevTimeMillis == 0L) {
             prevTimeMillis = currentTimeMillis
-            return if (wPrimeBalance < 0) 1.0 else wPrimeBalance / wPrimeCapacity
+            wPrimeBalance = wPrimeCapacity
+            return 1.0
         }
 
         val dtMs = currentTimeMillis - prevTimeMillis
         if (dtMs <= 0L) return (wPrimeBalance / wPrimeCapacity).coerceIn(0.0, 1.0)
 
-        // Cap sample to 5 s so GPS dropouts / display pauses don't cause
-        // unrealistic depletion spikes.
-        val dtSec = dtMs.coerceAtMost(5_000L) / 1000.0
-
         val powerAboveCp = powerWatts - cP
 
         if (powerAboveCp > 0.0) {
-            // ── Above CP: linear depletion ────────────────────────────────
+            // ── Above CP: deplete linearly ─────────────────────────────────
+            // Cap at 5 s to absorb power-meter dropouts / GPS spikes that
+            // could otherwise produce a sudden huge depletion.
+            val dtSec = dtMs.coerceAtMost(5_000L) / 1000.0
             wPrimeBalance -= powerAboveCp * dtSec
         } else {
-            // ── Below CP: exponential recovery ───────────────────────────
-            // Update running average of sub-CP power for τ (Skiba 2012)
+            // ── Below CP (or 0 W during a pause): exponential recovery ─────
+            // Use actual elapsed time, capped at 30 min (1 800 000 ms) to
+            // prevent unrealistic jumps after multi-hour power-off gaps.
+            // This is the same "0 W recovery ticker" approach used by the
+            // reference karoo-wprimebalance extension.
+            val dtSec = dtMs.coerceAtMost(1_800_000L) / 1000.0
+
+            // Update running average of sub-CP power for τ
             sumPowerBelowCp   += powerWatts
             countPowerBelowCp += 1
             avgPowerBelowCp    = sumPowerBelowCp / countPowerBelowCp.toDouble()
             currentTau         = tauForDeltaCp(cP - avgPowerBelowCp)
 
-            // Exact ODE solution: W'(t+dt) = W'cap − (W'cap − W'(t)) × e^(−dt/τ)
+            // Exact ODE solution for one time step
             val expFactor = exp(-dtSec / currentTau)
             wPrimeBalance = wPrimeCapacity - (wPrimeCapacity - wPrimeBalance) * expFactor
         }
@@ -109,30 +120,19 @@ class WPrimeCalculator {
     }
 
     /**
-     * Returns the current W'balance percentage WITHOUT advancing time.
-     * Used when the ride is paused: we show the last value but don't tick the clock.
-     * Still applies the config-change reset guard so a CP/W' change takes effect.
+     * Returns current balance without advancing time.
+     * Used only for display when no new power sample is available yet.
      */
-    fun frozenPercent(cp: Int, wPrimeJoules: Int): Double {
-        if (cp != lastCp || wPrimeJoules != lastWPrime) {
-            // Config changed while paused — reset for next recording session
-            cP             = cp.toDouble()
-            wPrimeCapacity = wPrimeJoules.toDouble()
-            wPrimeBalance  = wPrimeCapacity
-            sumPowerBelowCp   = 0.0
-            countPowerBelowCp = 0L
-            avgPowerBelowCp   = 0.0
-            currentTau = tauForDeltaCp(cP - avgPowerBelowCp)
-            prevTimeMillis = 0L
-            lastCp     = cp
-            lastWPrime = wPrimeJoules
-            return 1.0
-        }
+    fun currentPercent(): Double {
         val balance = if (wPrimeBalance < 0) wPrimeCapacity else wPrimeBalance
         return (balance / wPrimeCapacity).coerceIn(0.0, 1.0)
     }
 
-    /** τ (seconds) from Skiba (2012) equation. */
-    private fun tauForDeltaCp(deltaCp: Double): Double =
-        546.0 * exp(-0.01 * deltaCp) + 316.0
+    // ------------------------------------------------------------------
+
+    companion object {
+        /** τ (seconds) from Skiba (2012) equation. */
+        fun tauForDeltaCp(deltaCp: Double): Double =
+            546.0 * exp(-0.01 * deltaCp) + 316.0
+    }
 }
