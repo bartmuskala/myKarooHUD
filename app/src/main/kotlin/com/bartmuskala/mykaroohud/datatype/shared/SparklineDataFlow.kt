@@ -33,6 +33,7 @@ internal data class SparklineFrame(
     val displayedRange: Float,
     val lookaheadKm: Int,
     val enabled: Boolean,
+    val hasRoute: Boolean = true,  // false when not navigating any route/destination
 )
 
 /**
@@ -166,11 +167,14 @@ internal fun sparklineBitmapFlow(
             else ElevationSparklineResult(null, ratchetRange)
             ratchetRange = updatedRange
 
+            val hasRoute = route != null || dest != null || debugSweep
+
             SparklineFrame(
-                bitmap = bitmap,
+                bitmap = if (hasRoute) bitmap else null,
                 displayedRange = ratchetRange,
                 lookaheadKm = sparkCfg.lookaheadKm,
                 enabled = sparkCfg.enabled,
+                hasRoute = hasRoute,
             )
         }
     }

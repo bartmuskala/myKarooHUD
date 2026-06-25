@@ -108,6 +108,30 @@ class WPrimeCalculator {
         return wPrimeBalance / wPrimeCapacity
     }
 
+    /**
+     * Returns the current W'balance percentage WITHOUT advancing time.
+     * Used when the ride is paused: we show the last value but don't tick the clock.
+     * Still applies the config-change reset guard so a CP/W' change takes effect.
+     */
+    fun frozenPercent(cp: Int, wPrimeJoules: Int): Double {
+        if (cp != lastCp || wPrimeJoules != lastWPrime) {
+            // Config changed while paused — reset for next recording session
+            cP             = cp.toDouble()
+            wPrimeCapacity = wPrimeJoules.toDouble()
+            wPrimeBalance  = wPrimeCapacity
+            sumPowerBelowCp   = 0.0
+            countPowerBelowCp = 0L
+            avgPowerBelowCp   = 0.0
+            currentTau = tauForDeltaCp(cP - avgPowerBelowCp)
+            prevTimeMillis = 0L
+            lastCp     = cp
+            lastWPrime = wPrimeJoules
+            return 1.0
+        }
+        val balance = if (wPrimeBalance < 0) wPrimeCapacity else wPrimeBalance
+        return (balance / wPrimeCapacity).coerceIn(0.0, 1.0)
+    }
+
     /** τ (seconds) from Skiba (2012) equation. */
     private fun tauForDeltaCp(deltaCp: Double): Double =
         546.0 * exp(-0.01 * deltaCp) + 316.0

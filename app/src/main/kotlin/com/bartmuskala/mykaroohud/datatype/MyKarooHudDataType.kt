@@ -21,6 +21,7 @@ import com.bartmuskala.mykaroohud.extension.streamDataFlow
 import com.bartmuskala.mykaroohud.extension.streamUserProfile
 import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.models.DataType
+import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.StreamState
 import io.hammerhead.karooext.models.UserProfile
 import io.hammerhead.karooext.extension.DataTypeImpl
@@ -29,10 +30,13 @@ import io.hammerhead.karooext.models.UpdateGraphicConfig
 import io.hammerhead.karooext.models.ViewConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onEach
@@ -43,6 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import com.bartmuskala.mykaroohud.datatype.shared.SparklineFrame
+import com.bartmuskala.mykaroohud.extension.streamRideState
 
 class MyKarooHudDataType(
     private val karooSystem: KarooSystemService,
@@ -88,102 +93,118 @@ class MyKarooHudDataType(
         return color.toArgb()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun liveFlow(context: Context): Flow<HUDState> {
         val powerFlow = karooSystem.streamDataFlow(DataType.Type.SMOOTHED_3S_AVERAGE_POWER).onStart { emit(StreamState.Idle) }
         val instantPowerFlow = karooSystem.streamDataFlow(DataType.Type.POWER).onStart { emit(StreamState.Idle) }
-        // relativeWindDirFlow: the "headwind" stream from karoo-headwind gives the relative angle
-        // (diff) between absolute wind direction and current heading. 0 = tailwind, 180 = headwind.
         val relativeWindDirFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "headwind")).onStart { emit(StreamState.Idle) }
-        // headwindSpeed: the headwind component in m/s. Negative = tailwind, positive = headwind.
         val windSpeedFlow = karooSystem.streamDataFlow(DataType.dataTypeId("karoo-headwind", "headwindSpeed")).onStart { emit(StreamState.Idle) }
-        
+
         val sparklineFlow = sparklineBitmapFlow(
             karooSystem, context,
-            widthPx = 800, // Roughly standard width, will be scaled
+            widthPx = 800,
             heightPx = 80,
             isPreview = false
         ).onStart { emit(SparklineFrame(null, 0f, 5, true)) }
 
-        return combine(
-            powerFlow,
-            instantPowerFlow,
-            relativeWindDirFlow,
-            windSpeedFlow,
-            karooSystem.streamUserProfile(),
-            context.streamMyKarooHudConfig(),
-            sparklineFlow
-        ) { args: Array<Any?> ->
-            
-            val pStream = args[0] as StreamState
-            val pInstStream = args[1] as StreamState
-            val wDirStream = args[2] as StreamState
-            val wSpeedStream = args[3] as StreamState
-            val profile = args[4] as UserProfile
-            val config = args[5] as MyKarooHudConfig
-            val sparkline = args[6] as SparklineFrame
+        // RideState controls whether W'prime advances:
+        //   Recording → calculator runs normally
+        //   Paused / Idle / any other state → freeze calculator (skip advancing time)
+        val rideStateFlow = karooSystem.streamRideState().onStart { emit(RideState.Idle) }
 
-            val pInst = (pInstStream as? StreamState.Streaming)?.dataPoint?.singleValue ?: 0.0
-            val p3s = (pStream as? StreamState.Streaming)?.dataPoint?.singleValue ?: 0.0
-            val relativeWindDir = (wDirStream as? StreamState.Streaming)?.dataPoint?.singleValue
-            val windSpeed = (wSpeedStream as? StreamState.Streaming)?.dataPoint?.singleValue
+        return rideStateFlow.flatMapLatest { rideState ->
+            val isRecording = rideState is RideState.Recording
 
-            val powerZone = powerZone(p3s, profile.powerZones)
-            val powerColor = zoneFieldColor(powerZone, ZoneColorMode.TEXT, profile, ZoneConfig(powerPalette = com.bartmuskala.mykaroohud.datatype.shared.ZonePalette.ZWIFT), isHr = false)
-            val middleSlot = FieldState(
-                primary = p3s.roundToInt().toString(),
-                label = "Power",
-                color = powerColor,
-                iconRes = R.drawable.ic_col_power,
-                colorMode = ZoneColorMode.TEXT
-            )
+            combine(
+                powerFlow,
+                instantPowerFlow,
+                relativeWindDirFlow,
+                windSpeedFlow,
+                karooSystem.streamUserProfile(),
+                context.streamMyKarooHudConfig(),
+                sparklineFlow
+            ) { args: Array<Any?> ->
 
-            // relativeWindDir: angle (0-360°) from the "headwind" data type.
-            // windSpeed (headwindSpeed): positive = headwind, negative = tailwind, in m/s.
-            val leftSlot = if (relativeWindDir != null && windSpeed != null) {
-                val windKmh = windSpeed * 3.6 // m/s → km/h
-                val windColorHex = windColor(windKmh) // positive km/h = headwind = RED
-                FieldState(
-                    primary = windKmh.roundToInt().toString(),
-                    label = "Wind",
-                    color = FieldColor.Custom(windColorHex),
-                    iconRes = R.drawable.ic_col_speed,
-                    colorMode = ZoneColorMode.TEXT,
-                    windArrowAngle = relativeWindDir
+                val pStream    = args[0] as StreamState
+                val pInstStream = args[1] as StreamState
+                val wDirStream = args[2] as StreamState
+                val wSpeedStream = args[3] as StreamState
+                val profile    = args[4] as UserProfile
+                val config     = args[5] as MyKarooHudConfig
+                val sparkline  = args[6] as SparklineFrame
+
+                val pInst = (pInstStream as? StreamState.Streaming)?.dataPoint?.singleValue ?: 0.0
+                val p3s   = (pStream   as? StreamState.Streaming)?.dataPoint?.singleValue ?: 0.0
+                val relativeWindDir = (wDirStream  as? StreamState.Streaming)?.dataPoint?.singleValue
+                val windSpeed       = (wSpeedStream as? StreamState.Streaming)?.dataPoint?.singleValue
+
+                val powerZone = powerZone(p3s, profile.powerZones)
+                val powerColor = zoneFieldColor(powerZone, ZoneColorMode.TEXT, profile,
+                    ZoneConfig(powerPalette = com.bartmuskala.mykaroohud.datatype.shared.ZonePalette.ZWIFT),
+                    isHr = false)
+                val middleSlot = FieldState(
+                    primary = p3s.roundToInt().toString(),
+                    label = "Power",
+                    color = powerColor,
+                    iconRes = R.drawable.ic_col_power,
+                    colorMode = ZoneColorMode.TEXT
                 )
-            } else {
-                FieldState.searching("Wind", R.drawable.ic_col_speed)
+
+                val leftSlot = if (relativeWindDir != null && windSpeed != null) {
+                    val windKmh = windSpeed * 3.6
+                    val windColorHex = windColor(windKmh)
+                    FieldState(
+                        primary = windKmh.roundToInt().toString(),
+                        label = "Wind",
+                        color = FieldColor.Custom(windColorHex),
+                        iconRes = R.drawable.ic_col_speed,
+                        colorMode = ZoneColorMode.TEXT,
+                        windArrowAngle = relativeWindDir
+                    )
+                } else {
+                    FieldState.searching("Wind", R.drawable.ic_col_speed)
+                }
+
+                // W'prime: only advance clock when the ride is actively recording.
+                // When paused/stopped, pass null for currentTimeMillis to freeze the state.
+                val wPrimePercent = if (isRecording) {
+                    wPrimeCalculator.calculateWPrimeBalancePercent(
+                        powerWatts        = pInst,
+                        currentTimeMillis  = System.currentTimeMillis(),
+                        cp                = config.cp,
+                        wPrimeJoules      = config.wPrimeJoules,
+                    )
+                } else {
+                    // Paused: freeze — return last known value without advancing
+                    wPrimeCalculator.frozenPercent(config.cp, config.wPrimeJoules)
+                }
+                val wPrimeColorHex = wPrimeColor(wPrimePercent)
+
+                val rightSlot = FieldState(
+                    primary = "${(wPrimePercent * 100).roundToInt()}%",
+                    label = "W' prime",
+                    color = FieldColor.Custom(wPrimeColorHex),
+                    iconRes = R.drawable.ic_percent,
+                    colorMode = ZoneColorMode.TEXT
+                )
+
+                // Hide sparkline when not navigating a route/destination
+                val sparklineBitmap = if (sparkline.hasRoute) sparkline.bitmap else null
+
+                HUDState(
+                    columns = 3,
+                    leftSlot = leftSlot,
+                    leftColorMode = ZoneColorMode.TEXT,
+                    middleSlot = middleSlot,
+                    middleColorMode = ZoneColorMode.TEXT,
+                    rightSlot = rightSlot,
+                    rightColorMode = ZoneColorMode.TEXT,
+                    fourthSlot = leftSlot,
+                    fourthColorMode = ZoneColorMode.TEXT,
+                    profile = profile,
+                    sparklineBitmap = sparklineBitmap
+                )
             }
-
-            val currentTimeMillis = System.currentTimeMillis()
-            val wPrimePercent = wPrimeCalculator.calculateWPrimeBalancePercent(
-                powerWatts      = pInst,
-                currentTimeMillis = currentTimeMillis,
-                cp              = config.cp,
-                wPrimeJoules    = config.wPrimeJoules,
-            )
-            val wPrimeColorHex = wPrimeColor(wPrimePercent)
-
-            val rightSlot = FieldState(
-                primary = "${(wPrimePercent * 100).roundToInt()}%",
-                label = "W' prime",
-                color = FieldColor.Custom(wPrimeColorHex),
-                iconRes = R.drawable.ic_percent,
-                colorMode = ZoneColorMode.TEXT
-            )
-
-            HUDState(
-                columns = 3,
-                leftSlot = leftSlot,
-                leftColorMode = ZoneColorMode.TEXT,
-                middleSlot = middleSlot,
-                middleColorMode = ZoneColorMode.TEXT,
-                rightSlot = rightSlot,
-                rightColorMode = ZoneColorMode.TEXT,
-                fourthSlot = leftSlot, 
-                fourthColorMode = ZoneColorMode.TEXT,
-                profile = profile,
-                sparklineBitmap = sparkline.bitmap
-            )
         }.onStart {
             Timber.d("liveFlow combine started")
         }.catch { e ->
